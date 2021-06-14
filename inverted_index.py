@@ -4,10 +4,11 @@ import sys
 import uuid
 import glob
 import os
+from text_processing import stemming
 
 
-def process_docs(block_size, normalizer_method, index_file):
-    files = glob.glob('data/*.sgm')
+def process_docs(block_size, index_file):
+    files = glob.glob('short_data/*.sgm')
     n = 0
     block_file_names = []
     doc_length_dict = {}
@@ -22,9 +23,9 @@ def process_docs(block_size, normalizer_method, index_file):
                 text = doc.body.text
                 doc_id = int(doc['newid'].encode("utf-8"))
                 doc_length_dict[doc_id] = len(text.split())
-                tokens = tokens + normalizer_method(text, doc_id)
+                tokens = tokens + stemming(text, doc_id)
         block_file_names = block_file_names + spimi_index(tokens, block_size)
-
+    print('file names: ', block_file_names)
     collection_statistics(n, doc_length_dict)
     merge_blocks(block_file_names, index_file)
     print("END of process_docs")
@@ -37,10 +38,13 @@ def spimi_index(tokens, block_size):
         if (sys.getsizeof(index_dict) / 1024) < block_size:
             index_dict = add_to_dictionary(token, index_dict)
         else:
+            print('getsizeof', sys.getsizeof(index_dict) / 1024 / 1024)
             output_files = output_files + [write_block_to_disk(index_dict)]
             index_dict.clear()
             index_dict = add_to_dictionary(token, index_dict)
-    if index_dict:
+
+    print('getsizeof', sys.getsizeof(index_dict) / 1024 / 1024)
+    if index_dict.keys():
         output_files = output_files + [write_block_to_disk(index_dict)]
     return output_files
 
@@ -104,3 +108,24 @@ def get_inverted_index(index_file):
         inverted_index = pickle.load(load_file, encoding='latin1')
     load_file.close()
     return dict(inverted_index)
+
+
+def print_info():
+    files = ["index/index_stemming.pkl"]
+    for file_name in files:
+        inverted_index = get_inverted_index(file_name)
+        count = sum(len(post) for post in inverted_index.values())
+
+        with open("index/collection_stats.pkl", 'rb') as stats_files:
+            n, doc_length_dict, avg_doc_length = pickle.load(stats_files)
+        stats_files.close()
+
+        print("Stats for " + file_name)
+        print("Number of distinct terms: " + str(len(inverted_index)))
+        print("Number of tokens: " + str(count))
+        print("Number of documents processed (including empty): " + str(n))
+        print("Average document length: " + str(avg_doc_length) + " words")
+
+
+# process_docs(2**10, 'index/index_stemming.pkl')
+# print_info()

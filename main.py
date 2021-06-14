@@ -1,4 +1,4 @@
-from src.inverted_index import get_inverted_index
+from inverted_index import get_inverted_index
 import pickle
 
 # inverted_index = get_inverted_index('index/index_stemming.pkl')

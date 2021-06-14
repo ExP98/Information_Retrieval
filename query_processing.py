@@ -1,7 +1,7 @@
 from inverted_index import *
 from text_processing import *
 
-index_file = "../index/index_stemming.pkl"
+index_file = "index/index_stemming.pkl"
 
 
 def single_word_query():
@@ -65,7 +65,7 @@ def multiple_or_word_query():
 def not_word_query():
     inverted_index = get_inverted_index(index_file)
 
-    with open('../index/all_articles.pkl', 'rb') as load_file:
+    with open('index/all_articles.pkl', 'rb') as load_file:
         arts = pickle.load(load_file, encoding='latin1')
     load_file.close()
     all_doc_id_set = set(arts.keys())
@@ -102,7 +102,7 @@ def get_ind(l, elem):
 def parsing_query():
     inverted_index = get_inverted_index(index_file)
 
-    with open('../index/all_articles.pkl', 'rb') as load_file:
+    with open('index/all_articles.pkl', 'rb') as load_file:
         arts = pickle.load(load_file, encoding='latin1')
     load_file.close()
     all_doc_id_set = set(arts.keys())
@@ -118,18 +118,22 @@ def parsing_query():
         for i, elem in enumerate(q_list):
             if elem not in oper:
                 q = word_stemming(elem)
-                q_list[i] = set(x[0] for x in inverted_index[q])
+                if q in inverted_index.keys():
+                    q_list[i] = set(x[0] for x in inverted_index[q])
+                else:
+                    print(q, 'is not in index')
+                    parsing_query()
 
         ind = get_ind(q_list, "NOT")
         while ind:
-            tmp = all_doc_id_set - q_list[ind + 1]
+            tmp = all_doc_id_set - set(q_list[ind + 1])
             q_list.pop(ind)
             q_list[ind] = tmp
             ind = get_ind(q_list, "NOT")
 
         ind = get_ind(q_list, "AND")
         while ind:
-            tmp = q_list[ind - 1] & q_list[ind + 1]
+            tmp = set(q_list[ind - 1]) & set(q_list[ind + 1])
             q_list.pop(ind)
             q_list.pop(ind)
             q_list[ind - 1] = tmp
@@ -137,7 +141,7 @@ def parsing_query():
 
         ind = get_ind(q_list, "OR")
         while ind:
-            tmp = q_list[ind - 1] | q_list[ind + 1]
+            tmp = set(q_list[ind - 1]) | set(q_list[ind + 1])
             q_list.pop(ind)
             q_list.pop(ind)
             q_list[ind - 1] = tmp
@@ -146,12 +150,13 @@ def parsing_query():
         print('doc IDs: ', q_list[0])
 
 
-
-
 # parsing_query('Moscow OR Berlin OR Rome')
 # parsing_query('health AND care AND aids')
 # parsing_query('health AND care OR aids')
+
+
 parsing_query()
+
 
 # single_word_query()
 # multiple_and_word_query()           # for example (without quotes): "health care aids"
