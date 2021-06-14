@@ -1,16 +1,15 @@
-from bs4 import BeautifulSoup
-import pickle
-import sys
-import uuid
-import glob
-import os
-import shutil
+from bs4 import BeautifulSoup           # parse html pages
+import sys                              # getsizeof
+import uuid                             # to create unique file names
+import glob                             # to get the family of path names
+import os                               # to create dir
+import shutil                           # to delete dir
 from text_processing import stemming
 from collections import OrderedDict
 
 
 def process_docs(block_size, index_file):
-    files = glob.glob('short_data/*.sgm')
+    files = glob.glob('data/*.sgm')
 
     block_file_names = []
     tokens = []
@@ -31,10 +30,8 @@ def process_docs(block_size, index_file):
                     tokens = []
                 doc_id += 1
     block_file_names += spimi_index(tokens)
-    tokens = []
-    print(block_file_names)
     merge(block_file_names, index_file)
-    print("END of process_docs")
+    print("INDEX was built", index_file)
 
 
 def spimi_index(tokens):
@@ -46,8 +43,7 @@ def spimi_index(tokens):
             index_dict[term].add(doc_id)
     index_dict = OrderedDict(sorted(index_dict.items()))
 
-    print('getsizeof, MB', sys.getsizeof(index_dict) / 1024 / 1024)
-    print(len(index_dict))
+    print('Block, size: ', sys.getsizeof(index_dict) / 1024 / 1024, ' MB; len: len(index_dict)')
     return [write_block_to_disk(index_dict)]
 
 
@@ -122,29 +118,20 @@ def merge(filenames_list, index_file):
     os.mkdir('temp/')
 
 
-def get_inverted_index(index_file):
-    with open(index_file, 'rb') as load_file:
-        inverted_index = pickle.load(load_file, encoding='latin1')
-    load_file.close()
-    return dict(inverted_index)
+def get_posting_by_term(query_term, index_file='index/index.out'):
+    pos = set()
+    with open(index_file, 'r') as ind_f:
+        for line in ind_f:
+            line_list = line.split(':')
+            if line_list[0] == query_term:
+                pos = set([int(x) for x in line_list[1][2:-2].split(',')])
+    return pos
 
 
-# def print_info():
-#     files = ["index/index_stemming.pkl"]
-#     for file_name in files:
-#         inverted_index = get_inverted_index(file_name)
-#         count = sum(len(post) for post in inverted_index.values())
-#
-#         with open("index/collection_stats.pkl", 'rb') as stats_files:
-#             n, doc_length_dict, avg_doc_length = pickle.load(stats_files)
-#         stats_files.close()
-#
-#         print("Stats for " + file_name)
-#         print("Number of distinct terms: " + str(len(inverted_index)))
-#         print("Number of tokens: " + str(count))
-#         print("Number of documents processed (including empty): " + str(n))
-#         print("Average document length: " + str(avg_doc_length) + " words")
-
-
-process_docs(2**10, 'index/index.out')
-# print_info()
+def get_doc_ids(index_file='index/index.out'):
+    pos = set()
+    with open(index_file, 'r') as ind_f:
+        for line in ind_f:
+            line_list = line.split(':')
+            pos |= set([int(x) for x in line_list[1][2:-2].split(',')])
+    return pos

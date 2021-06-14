@@ -1,11 +1,10 @@
 from inverted_index import *
 from text_processing import *
 
-index_file = "index/index_stemming.pkl"
+index_file = 'index/index.out'
 
 
 def single_word_query():
-    inverted_index = get_inverted_index(index_file)
     while True:
         query = input("\nTo exit write exit()\nEnter one word as a query: ")
         if query == "exit()":
@@ -15,64 +14,60 @@ def single_word_query():
             break
         else:
             query = word_stemming(query)
-            if query in inverted_index.keys():
-                print('inv ind', inverted_index[query])
-                doc_ids_set = set([x[0] for x in inverted_index[query]])
-                doc_count = len(doc_ids_set)
-                print('doc IDs:', doc_ids_set)
-                print('count of docs', doc_count)
+            res = get_posting_by_term(query)
+            if len(res) > 0:
+                print('posting list', res)
+                print('doc IDs:', res)
+                print('count of docs', len(res))
             else:
                 print('Selected word is not indexed')
 
 
 def multiple_and_word_query():
-    inverted_index = get_inverted_index(index_file)
+    print("\nTo exit write exit()")
     while True:
-        query = input("\nTo exit write exit()\n"
-                      "AND query (without AND, list the words separated by spaces): ")
+        query = input("\nAND query (without AND, list the words separated by spaces): ")
         if query == "exit()":
             break
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
         for term in terms:
-            if term in inverted_index.keys():
-                id_to_add = set([x[0] for x in inverted_index[term]])
-                if not matches:
-                    matches = id_to_add
-                else:
-                    matches &= id_to_add
-        print('count of docs:', len(matches))
-        print('doc IDs: ', matches)
+            res = get_posting_by_term(term)
+
+            if not matches:
+                matches = res
+            else:
+                matches &= res
+        if len(matches) > 0:
+            print('count of docs:', len(matches))
+            print('doc IDs: ', matches)
+        else:
+            print('Nothing was found ')
 
 
 def multiple_or_word_query():
-    inverted_index = get_inverted_index(index_file)
+    print("\nTo exit write exit()")
     while True:
-        query = input("\nTo exit write exit()"
-                      "\nOR query (without OR, list the words separated by spaces): ")
+        query = input("\nOR query (without OR, list the words separated by spaces): ")
         if query == "exit()":
             break
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
         for term in terms:
-            if term in inverted_index.keys():
-                matches |= set([x[0] for x in inverted_index[term]])
-
-        print('count of docs:', len(matches))
-        print('doc IDs: ', matches)
+            res = get_posting_by_term(term)
+            matches |= res
+        if len(matches) > 0:
+            print('count of docs:', len(matches))
+            print('doc IDs: ', matches)
+        else:
+            print('Nothing was found ')
 
 
 def not_word_query():
-    inverted_index = get_inverted_index(index_file)
-
-    with open('index/all_articles.pkl', 'rb') as load_file:
-        arts = pickle.load(load_file, encoding='latin1')
-    load_file.close()
-    all_doc_id_set = set(arts.keys())
-
+    doc_id_set = get_doc_ids()
+    print("\nTo exit write exit()")
     while True:
-        query = input("\nTo exit write exit()"
-                      "\nNOT query (without NOT, list the words separated by spaces): ")
+        query = input("\nNOT query (without NOT, list the words separated by spaces): ")
         if query == "exit()":
             break
         if len(query.split()) > 1:
@@ -80,53 +75,70 @@ def not_word_query():
             break
         else:
             query = word_stemming(query)
-            if query in inverted_index.keys():
-                query_ids = set([x[0] for x in inverted_index[query]])
-                print(len(all_doc_id_set), len(query_ids))
-                diff_id = all_doc_id_set - query_ids
-                print(len(all_doc_id_set & query_ids))
-            else:
-                diff_id = set()
+            res = get_posting_by_term(query)
+            diff_id = doc_id_set - res
+            print('len: all, res, &, diff:', len(doc_id_set), len(res), len(doc_id_set & res), len(diff_id))
+
             print('count of docs:', len(diff_id))
             # print('doc IDs: ', diff_id)
 
 
-def get_ind(l, elem):
-    if l.__contains__(elem):
-        ind = l.index(elem)
+def get_ind(lst, elem):
+    if lst.__contains__(elem):
+        ind = lst.index(elem)
     else:
         ind = None
     return ind
 
 
+def srep(_str):
+    _str = _str.replace(" or ", " OR ")
+    _str = _str.replace(' | ', ' OR ')
+    _str = _str.replace(' and ', ' AND ')
+    _str = _str.replace(' & ', ' AND ')
+    _str = _str.replace(' not ', ' NOT ')
+    _str = _str.replace('not ', ' NOT ')
+    _str = _str.replace('NOT ', ' NOT ')
+    _str = _str.replace(' ~ ', ' NOT ')
+    _str = _str.replace(' ~', ' NOT ')
+    _str = _str.replace('~', ' NOT ')
+    return _str
+
+
 def parsing_query():
-    inverted_index = get_inverted_index(index_file)
-
-    with open('index/all_articles.pkl', 'rb') as load_file:
-        arts = pickle.load(load_file, encoding='latin1')
-    load_file.close()
-    all_doc_id_set = set(arts.keys())
-
+    doc_id_set = get_doc_ids()
     oper = ["AND", "NOT", "OR"]
+    print("\nTo exit write exit()\nPossible operators: AND, and, &; OR, or, |; NOT, not, ~\nNO brackets!")
+    print("Example: health OR aid AND not care")
+    print("Example: ~Moscow | Berlin & Rome")
 
     while True:
-        query_string = input("\nTo exit write exit()\nQuery: ")
+        query_string = input("\nQuery: ")
         if query_string == "exit()":
             break
 
+        query_string = srep(query_string)
         q_list = query_string.split()
+        print(q_list)
         for i, elem in enumerate(q_list):
             if elem not in oper:
-                q = word_stemming(elem)
-                if q in inverted_index.keys():
-                    q_list[i] = set(x[0] for x in inverted_index[q])
-                else:
-                    print(q, 'is not in index')
+                try:
+                    q = word_stemming(elem)
+                    res = get_posting_by_term(q)
+                    if len(res) > 0:
+                        q_list[i] = res
+                    else:
+                        print(q, 'is not in index')
+                        parsing_query()
+                except Exception:
+                    print('Exception')
                     parsing_query()
 
         ind = get_ind(q_list, "NOT")
-        while ind:
-            tmp = all_doc_id_set - set(q_list[ind + 1])
+        # to avoid while 0 (because ind of 'NOT' might be 0th)
+        while ind is not None:
+            print(q_list[ind + 1])
+            tmp = doc_id_set - set(q_list[ind + 1])
             q_list.pop(ind)
             q_list[ind] = tmp
             ind = get_ind(q_list, "NOT")
@@ -147,15 +159,10 @@ def parsing_query():
             q_list[ind - 1] = tmp
             ind = get_ind(q_list, "OR")
         print('Count of docs: ', len(q_list[0]))
-        print('doc IDs: ', q_list[0])
+        # print('doc IDs: ', q_list[0])
 
 
-# parsing_query('Moscow OR Berlin OR Rome')
-# parsing_query('health AND care AND aids')
-# parsing_query('health AND care OR aids')
-
-
-parsing_query()
+# parsing_query()
 
 
 # single_word_query()

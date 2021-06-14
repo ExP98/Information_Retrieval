@@ -1,10 +1,8 @@
 import glob
-import pickle
 from bs4 import BeautifulSoup
 
 
 files = glob.glob('data/*.sgm')
-print(files)
 doc_dictionary = dict()
 for file in files:
     soup = BeautifulSoup(open(file), 'html.parser')
@@ -16,6 +14,8 @@ for file in files:
             doc_id = int(doc['newid'].encode("utf-8"))
             doc_dictionary[doc_id] = text
 
-with open('index/all_articles.pkl', "wb") as output_file:
-    pickle.dump(doc_dictionary, output_file, protocol=pickle.HIGHEST_PROTOCOL)
-output_file.close()
+with open('index/all_articles.txt', "w") as output_file:
+    for k in doc_dictionary.keys():
+        output_file.write(f"ID {k}: {doc_dictionary[k]}\n")
+
+print("All articles were written to file")

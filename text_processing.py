@@ -3,7 +3,7 @@ import string
 
 
 def stemming(text):
-    text = "".join(l for l in text if l not in string.punctuation)
+    text = "".join(x for x in text if x not in string.punctuation)
     text = ''.join([word for word in text if not word.isdigit()])   # remove numbers
     tokens = text.lower().split()                                   # lower case and splitting by spaces
     tokens = [token for token in tokens if token not in stopwords]  # remove_stopwords
