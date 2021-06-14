@@ -2,22 +2,17 @@ from nltk.stem import PorterStemmer
 import string
 
 
-def stemming(text, _id):
+def stemming(text):
     text = "".join(l for l in text if l not in string.punctuation)
     text = ''.join([word for word in text if not word.isdigit()])   # remove numbers
     tokens = text.lower().split()                                   # lower case and splitting by spaces
     tokens = [token for token in tokens if token not in stopwords]  # remove_stopwords
     stemmer = PorterStemmer()
-    tokens = [stemmer.stem(token) for token in tokens]
-    return token_tuples(tokens, _id)
+    return [stemmer.stem(token) for token in tokens]
 
 
 def word_stemming(word):
-    return stemming(word, 0)[0][0]
-
-
-def token_tuples(tokens, _id):
-    return [(token.encode("utf-8"), (_id, 1, 0)) for token in tokens]
+    return stemming(word)[0]
 
 
 stopwords = ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "as", "at",
@@ -32,4 +27,4 @@ stopwords = ["a", "about", "above", "after", "again", "against", "all", "am", "a
              "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
              "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "where", "which",
              "while", "who", "whom", "why", "with", "won't", "would", "wouldn't", "you", "you're", "your", "yours",
-             "yourself"]
+             "yourself", ""]

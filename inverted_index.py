@@ -4,103 +4,122 @@ import sys
 import uuid
 import glob
 import os
+import shutil
 from text_processing import stemming
+from collections import OrderedDict
 
 
 def process_docs(block_size, index_file):
     files = glob.glob('short_data/*.sgm')
-    n = 0
+
     block_file_names = []
-    doc_length_dict = {}
+    tokens = []
+    doc_id = 0
+
     for file in files:
         soup = BeautifulSoup(open(file), 'html.parser')
         documents = soup.find_all('reuters')
-        n += len(documents)
-        tokens = []
 
         for doc in documents:
             if doc.body is not None and doc.body.text is not None:
                 text = doc.body.text
-                doc_id = int(doc['newid'].encode("utf-8"))
-                doc_length_dict[doc_id] = len(text.split())
-                tokens = tokens + stemming(text, doc_id)
-        block_file_names = block_file_names + spimi_index(tokens, block_size)
-    print('file names: ', block_file_names)
-    collection_statistics(n, doc_length_dict)
-    merge_blocks(block_file_names, index_file)
+
+                if (sys.getsizeof(tokens) / 1024) < block_size:
+                    tokens += [(t, doc_id) for t in stemming(text)]
+                else:
+                    block_file_names += spimi_index(tokens)
+                    tokens = []
+                doc_id += 1
+    block_file_names += spimi_index(tokens)
+    tokens = []
+    print(block_file_names)
+    merge(block_file_names, index_file)
     print("END of process_docs")
 
 
-def spimi_index(tokens, block_size):
-    index_dict = {}
-    output_files = []
-    for token in tokens:
-        if (sys.getsizeof(index_dict) / 1024) < block_size:
-            index_dict = add_to_dictionary(token, index_dict)
+def spimi_index(tokens):
+    index_dict = dict()
+    for term, doc_id in tokens:
+        if term not in index_dict.keys():
+            index_dict[term] = {doc_id}
         else:
-            print('getsizeof', sys.getsizeof(index_dict) / 1024 / 1024)
-            output_files = output_files + [write_block_to_disk(index_dict)]
-            index_dict.clear()
-            index_dict = add_to_dictionary(token, index_dict)
+            index_dict[term].add(doc_id)
+    index_dict = OrderedDict(sorted(index_dict.items()))
 
-    print('getsizeof', sys.getsizeof(index_dict) / 1024 / 1024)
-    if index_dict.keys():
-        output_files = output_files + [write_block_to_disk(index_dict)]
-    return output_files
-
-
-def add_to_dictionary(token, index_dict):
-    if token[0] in index_dict.keys():
-        if token[1][0] not in index_dict[token[0]]:
-            index_dict[token[0]].append(token[1])
-        else:
-            index = index_dict[token[0]].index(token[1][0])
-            index_dict[token[0]][index][1] += 1
-    else:
-        index_dict[token[0]] = [token[1]]
-    return index_dict
+    print('getsizeof, MB', sys.getsizeof(index_dict) / 1024 / 1024)
+    print(len(index_dict))
+    return [write_block_to_disk(index_dict)]
 
 
 def write_block_to_disk(index_dict):
-    with open("temp/" + str(uuid.uuid4()), "wb") as output_file:
-        pickle.dump(index_dict, output_file, protocol=pickle.HIGHEST_PROTOCOL)
-    output_file.close()
-    return output_file.name
+    with open("temp/" + str(uuid.uuid4()) + ".bin", "w") as wf:
+        for k in index_dict.keys():
+            wf.write(f"{k}: {index_dict[k]}\n")
+    return wf.name
 
 
-def collection_statistics(n, doc_length_dict):
-    total_docs_length = 0
-    for key, value in doc_length_dict.items():
-        total_docs_length += value
-    avg_doc_length = total_docs_length / n
-    with open("index/collection_stats.pkl", "wb") as stats_file:
-        pickle.dump((n, doc_length_dict, avg_doc_length), stats_file, protocol=pickle.HIGHEST_PROTOCOL)
-    stats_file.close()
+def get_next_line(handler):
+    line = handler.readline()
+    if not line:
+        return None, []
+    line = line.split(':')
+    term = line[0]
+    id_list = [int(x) for x in line[1][2:-2].split(',')]
+    return term, id_list
 
 
-def merge_blocks(block_file_names, index_file):
-    for block_path in block_file_names:
-        inverted_index = {}
+def merge_two_files(file_name1, file_name2, res='-1'):
+    f1 = open(file_name1, 'r')
+    f2 = open(file_name2, 'r')
+    if res == '-1':
+        file_name_res = "temp/" + str(uuid.uuid4())
+    else:
+        file_name_res = res
+    f_res = open(file_name_res, 'w')
 
-        with open(block_path, 'rb') as block_file:
-            block = pickle.load(block_file, encoding='latin1')
-        block_file.close()
+    t1, l1 = get_next_line(f1)
+    t2, l2 = get_next_line(f2)
 
-        if os.path.isfile(index_file):
-            with open(index_file, 'rb') as output_file:
-                index = pickle.load(output_file, encoding='latin1')
-            output_file.close()
+    while (t1 is not None) & (t2 is not None):
+        if t1 == t2:
+            f_res.write(f"{t1}: {set(l1) | set(l2)}\n")
+            t1, l1 = get_next_line(f1)
+            t2, l2 = get_next_line(f2)
+        elif t1 < t2:
+            f_res.write(f"{t1}: {set(l1)}\n")
+            t1, l1 = get_next_line(f1)
+        elif t1 > t2:
+            f_res.write(f"{t2}: {set(l2)}\n")
+            t2, l2 = get_next_line(f2)
+    if t1 is None:
+        while t2 is not None:
+            f_res.write(f"{t2}: {set(l2)}\n")
+            t2, l2 = get_next_line(f2)
+    if t2 is None:
+        while t1 is not None:
+            f_res.write(f"{t1}: {set(l1)}\n")
+            t1, l1 = get_next_line(f1)
 
-            for dictionary in [index, block]:
-                for key, value in dictionary.items():
-                    inverted_index.setdefault(key, []).extend(value)
+    f1.close()
+    f2.close()
+    f_res.close()
+    return file_name_res
+
+
+def merge(filenames_list, index_file):
+    stack = []
+    for fn in filenames_list:
+        stack.append(fn)
+
+    f1 = stack.pop()
+    while stack:
+        f2 = stack.pop()
+        if stack:
+            f1 = merge_two_files(f1, f2)
         else:
-            inverted_index = block
-
-        with open(index_file, "wb") as output_file:
-            pickle.dump(inverted_index, output_file, protocol=pickle.HIGHEST_PROTOCOL)
-        output_file.close()
-        os.remove(block_path)
+            f1 = merge_two_files(f1, f2, res=index_file)
+    shutil.rmtree('temp/')
+    os.mkdir('temp/')
 
 
 def get_inverted_index(index_file):
@@ -110,22 +129,22 @@ def get_inverted_index(index_file):
     return dict(inverted_index)
 
 
-def print_info():
-    files = ["index/index_stemming.pkl"]
-    for file_name in files:
-        inverted_index = get_inverted_index(file_name)
-        count = sum(len(post) for post in inverted_index.values())
+# def print_info():
+#     files = ["index/index_stemming.pkl"]
+#     for file_name in files:
+#         inverted_index = get_inverted_index(file_name)
+#         count = sum(len(post) for post in inverted_index.values())
+#
+#         with open("index/collection_stats.pkl", 'rb') as stats_files:
+#             n, doc_length_dict, avg_doc_length = pickle.load(stats_files)
+#         stats_files.close()
+#
+#         print("Stats for " + file_name)
+#         print("Number of distinct terms: " + str(len(inverted_index)))
+#         print("Number of tokens: " + str(count))
+#         print("Number of documents processed (including empty): " + str(n))
+#         print("Average document length: " + str(avg_doc_length) + " words")
 
-        with open("index/collection_stats.pkl", 'rb') as stats_files:
-            n, doc_length_dict, avg_doc_length = pickle.load(stats_files)
-        stats_files.close()
 
-        print("Stats for " + file_name)
-        print("Number of distinct terms: " + str(len(inverted_index)))
-        print("Number of tokens: " + str(count))
-        print("Number of documents processed (including empty): " + str(n))
-        print("Average document length: " + str(avg_doc_length) + " words")
-
-
-# process_docs(2**10, 'index/index_stemming.pkl')
+process_docs(2**10, 'index/index.out')
 # print_info()
