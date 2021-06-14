@@ -8,7 +8,7 @@ def single_word_query():
     while True:
         query = input("\nTo exit write exit()\nEnter one word as a query: ")
         if query == "exit()":
-            break
+            sys.exit()
         if len(query.split()) > 1:
             print("This is not a single word")
             break
@@ -28,7 +28,7 @@ def multiple_and_word_query():
     while True:
         query = input("\nAND query (without AND, list the words separated by spaces): ")
         if query == "exit()":
-            break
+            sys.exit()
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
         for term in terms:
@@ -50,7 +50,7 @@ def multiple_or_word_query():
     while True:
         query = input("\nOR query (without OR, list the words separated by spaces): ")
         if query == "exit()":
-            break
+            sys.exit()
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
         for term in terms:
@@ -69,7 +69,7 @@ def not_word_query():
     while True:
         query = input("\nNOT query (without NOT, list the words separated by spaces): ")
         if query == "exit()":
-            break
+            sys.exit()
         if len(query.split()) > 1:
             print("This is not a single word")
             break
@@ -115,7 +115,7 @@ def parsing_query():
     while True:
         query_string = input("\nQuery: ")
         if query_string == "exit()":
-            break
+            sys.exit()
 
         query_string = srep(query_string)
         q_list = query_string.split()
