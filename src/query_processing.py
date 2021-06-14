@@ -7,46 +7,37 @@ index_file = "../index/index_stemming.pkl"
 def single_word_query():
     inverted_index = get_inverted_index(index_file)
     while True:
-        query = input("Enter a single keyword search query: ")
+        query = input("Enter one word as a query: ")
         if len(query.split()) > 1:
             print("This is not a single word")
             break
         else:
             query = word_stemming(query)
             if query in inverted_index.keys():
+                print('inv ind', inverted_index[query])
                 doc_ids_set = set([x[0] for x in inverted_index[query]])
                 doc_count = len(doc_ids_set)
                 print('doc IDs:', doc_ids_set)
                 print('count of docs', doc_count)
-
-                # with open("all_articles", 'rb') as all_articles:
-                #     d = pickle.load(all_articles)
-                # all_articles.close()
-
-                # if doc_count > 5:
-                #     for _id in list(doc_ids_set)[:5]:
-                #         print('\n!!!\n', _id, '\n', d[_id])
             else:
-                print('keyword is not in index')
+                print('Selected word is not indexed')
 
 
 def multiple_and_word_query():
     inverted_index = get_inverted_index(index_file)
     while True:
-        query = input("Enter a multiple AND search query: ")
+        query = input("\nAND query (without AND, list the words separated by spaces): ")
         if query == "exit()":
             break
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
-        print('TERMS: ', terms, len(terms))
         for term in terms:
             if term in inverted_index.keys():
                 id_to_add = set([x[0] for x in inverted_index[term]])
                 if not matches:
                     matches = id_to_add
                 else:
-                    matches = matches & id_to_add
-
+                    matches &= id_to_add
         print('count of docs:', len(matches))
         print('doc IDs: ', matches)
 
@@ -54,27 +45,46 @@ def multiple_and_word_query():
 def multiple_or_word_query():
     inverted_index = get_inverted_index(index_file)
     while True:
-        query = input("Enter a multiple OR search query: ")
+        query = input("\nOR query (without OR, list the words separated by spaces): ")
         if query == "exit()":
             break
         terms = [word_stemming(w) for w in query.split()]
         matches = set()
         for term in terms:
             if term in inverted_index.keys():
-                matches |= set([_[0] for _ in inverted_index[term]])
+                matches |= set([x[0] for x in inverted_index[term]])
 
         print('count of docs:', len(matches))
         print('doc IDs: ', matches)
 
-        # with open("all_articles", 'rb') as all_articles:
-        #     d = pickle.load(all_articles)
-        # all_articles.close()
-        #
-        # if len(matches) > 5:
-        #     for i in list(matches)[:5]:
-        #         print('\nID: ', i, '\n', d[i])
+
+def not_word_query():
+    inverted_index = get_inverted_index(index_file)
+
+    with open('../index/all_articles.pkl', 'rb') as load_file:
+        arts = pickle.load(load_file, encoding='latin1')
+    load_file.close()
+    all_doc_id_set = set(arts.keys())
+
+    while True:
+        query = input("\nNOT query (without NOT, list the words separated by spaces): ")
+        if len(query.split()) > 1:
+            print("This is not a single word")
+            break
+        else:
+            query = word_stemming(query)
+            if query in inverted_index.keys():
+                query_ids = set([x[0] for x in inverted_index[query]])
+                print(len(all_doc_id_set), len(query_ids))
+                diff_id = all_doc_id_set - query_ids
+                print(len(all_doc_id_set & query_ids))
+            else:
+                diff_id = set()
+            print('count of docs:', len(diff_id))
+            # print('doc IDs: ', diff_id)
 
 
 # single_word_query()
-multiple_and_word_query()
+# multiple_and_word_query()           # for example (without quotes): "health care aids"
 # multiple_or_word_query()
+not_word_query()
