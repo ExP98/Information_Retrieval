@@ -1,5 +1,5 @@
-from inverted_index import process_docs
-from text_processing import stemming
+from src.inverted_index import process_docs
+from src.text_processing import stemming
 
 index_file = "index/index_stemming.pkl"
 Kbyte_limit = 2**10

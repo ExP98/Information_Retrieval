@@ -1,7 +1,7 @@
 import pickle
 
-with open("index/collection_stats.pkl", 'rb') as all_articles:
+with open("index/all_articles.pkl", 'rb') as all_articles:
     d = pickle.load(all_articles)
 all_articles.close()
 
-print(d)
+print(d[20477])
