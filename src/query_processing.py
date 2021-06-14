@@ -1,7 +1,7 @@
 from inverted_index import *
 from text_processing import *
 
-index_file = "index/index_stemming.pkl"
+index_file = "../index/index_stemming.pkl"
 
 
 def single_word_query():
