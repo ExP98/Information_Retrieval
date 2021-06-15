@@ -151,20 +151,22 @@ def merge(filenames_list, index_file):
     os.mkdir('temp/')
 
 
-def get_posting_by_term(query_term, index_file='index/index.out'):
+def get_posting_by_term(query_term, index_file='index/tfidf_index.out'):
     pos = set()
     with open(index_file, 'r') as ind_f:
         for line in ind_f:
-            line_list = line.split(':')
+            line_list = line.split(' | ')
             if line_list[0] == query_term:
-                pos = set([int(x) for x in line_list[1][2:-2].split(',')])
+                item_list_str = [x.split(':') for x in line_list[1][1:-2].split(',')]
+                pos = set([int(it[0]) for it in item_list_str])
     return pos
 
 
-def get_doc_ids(index_file='index/index.out'):
+def get_doc_ids(index_file='index/tfidf_index.out'):
     pos = set()
     with open(index_file, 'r') as ind_f:
         for line in ind_f:
-            line_list = line.split(':')
-            pos |= set([int(x) for x in line_list[1][2:-2].split(',')])
+            line_list = line.split(' | ')
+            item_list_str = [x.split(':') for x in line_list[1][1:-2].split(',')]
+            pos |= set([int(it[0]) for it in item_list_str])
     return pos

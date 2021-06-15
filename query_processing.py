@@ -1,86 +1,7 @@
 from inverted_index import *
 from text_processing import *
 
-index_file = 'index/index.out'
-
-
-def single_word_query():
-    while True:
-        query = input("\nTo exit write exit()\nEnter one word as a query: ")
-        if query == "exit()":
-            sys.exit()
-        if len(query.split()) > 1:
-            print("This is not a single word")
-            break
-        else:
-            query = word_stemming(query)
-            res = get_posting_by_term(query)
-            if len(res) > 0:
-                print('posting list', res)
-                print('doc IDs:', res)
-                print('count of docs', len(res))
-            else:
-                print('Selected word is not indexed')
-
-
-def multiple_and_word_query():
-    print("\nTo exit write exit()")
-    while True:
-        query = input("\nAND query (without AND, list the words separated by spaces): ")
-        if query == "exit()":
-            sys.exit()
-        terms = [word_stemming(w) for w in query.split()]
-        matches = set()
-        for term in terms:
-            res = get_posting_by_term(term)
-
-            if not matches:
-                matches = res
-            else:
-                matches &= res
-        if len(matches) > 0:
-            print('count of docs:', len(matches))
-            print('doc IDs: ', matches)
-        else:
-            print('Nothing was found ')
-
-
-def multiple_or_word_query():
-    print("\nTo exit write exit()")
-    while True:
-        query = input("\nOR query (without OR, list the words separated by spaces): ")
-        if query == "exit()":
-            sys.exit()
-        terms = [word_stemming(w) for w in query.split()]
-        matches = set()
-        for term in terms:
-            res = get_posting_by_term(term)
-            matches |= res
-        if len(matches) > 0:
-            print('count of docs:', len(matches))
-            print('doc IDs: ', matches)
-        else:
-            print('Nothing was found ')
-
-
-def not_word_query():
-    doc_id_set = get_doc_ids()
-    print("\nTo exit write exit()")
-    while True:
-        query = input("\nNOT query (without NOT, list the words separated by spaces): ")
-        if query == "exit()":
-            sys.exit()
-        if len(query.split()) > 1:
-            print("This is not a single word")
-            break
-        else:
-            query = word_stemming(query)
-            res = get_posting_by_term(query)
-            diff_id = doc_id_set - res
-            print('len: all, res, &, diff:', len(doc_id_set), len(res), len(doc_id_set & res), len(diff_id))
-
-            print('count of docs:', len(diff_id))
-            # print('doc IDs: ', diff_id)
+index_file = 'index/tfidf_index.out'
 
 
 def get_ind(lst, elem):
@@ -105,6 +26,26 @@ def srep(_str):
     return _str
 
 
+def show_best_matches(num, term_list, doc_id_set, index_file='index/tfidf_index.out'):
+    doc_d = dict()
+    with open(index_file, 'r') as ind_f:
+        for line in ind_f:
+            line_list = line.split(' | ')
+            if line_list[0] in term_list:
+                item_list_str = [x.split(':') for x in line_list[1][1:-2].split(',')]
+                pos = [(int(it[0]), float(it[1])) for it in item_list_str]
+                for doc_id, tfidf in pos:
+                    if doc_id in doc_id_set:
+                        if doc_id not in doc_d.keys():
+                            doc_d[doc_id] = tfidf
+                        else:
+                            doc_d[doc_id] += tfidf
+    res_list = sorted(doc_d.items(), key=lambda item: item[1], reverse=True)
+    if len(res_list) > num:
+        res_list = res_list[:num]
+    return res_list
+
+
 def parsing_query():
     doc_id_set = get_doc_ids()
     oper = ["AND", "NOT", "OR"]
@@ -120,8 +61,10 @@ def parsing_query():
         query_string = srep(query_string)
         q_list = query_string.split()
         print(q_list)
+        q_list_not_oper = []
         for i, elem in enumerate(q_list):
             if elem not in oper:
+                q_list_not_oper.append(elem)
                 try:
                     q = word_stemming(elem)
                     res = get_posting_by_term(q)
@@ -137,7 +80,6 @@ def parsing_query():
         ind = get_ind(q_list, "NOT")
         # to avoid while 0 (because ind of 'NOT' might be 0th)
         while ind is not None:
-            print(q_list[ind + 1])
             tmp = doc_id_set - set(q_list[ind + 1])
             q_list.pop(ind)
             q_list[ind] = tmp
@@ -159,6 +101,8 @@ def parsing_query():
             q_list[ind - 1] = tmp
             ind = get_ind(q_list, "OR")
         print('Count of docs: ', len(q_list[0]))
+        num = 5
+        print('Best ', num, ' by sum of tf-idf: ', show_best_matches(num, q_list_not_oper, q_list[0]))
         # print('doc IDs: ', q_list[0])
 
 
